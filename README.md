@@ -100,12 +100,12 @@ src/
 4. **Environment Variables:**
    Create a `.env` file in the `medical-helper-app` root directory and add your Firebase credentials:
    ```env
-   VITE_FIREBASE_API_KEY=your_api_key
-   VITE_FIREBASE_AUTH_DOMAIN=your_auth_domain
-   VITE_FIREBASE_PROJECT_ID=your_project_id
-   VITE_FIREBASE_STORAGE_BUCKET=your_storage_bucket
-   VITE_FIREBASE_MESSAGING_SENDER_ID=your_messaging_sender_id
-   VITE_FIREBASE_APP_ID=your_app_id
+   VITE_FIREBASE_API_KEY=AIzaSyBchyO4uc_ly0EMHvXG9ZtOMWOPCBF-D5s
+   VITE_FIREBASE_AUTH_DOMAIN=medication-helper-app.firebaseapp.com
+   VITE_FIREBASE_PROJECT_ID=medication-helper-app
+   VITE_FIREBASE_STORAGE_BUCKET=medication-helper-app.firebasestorage.app
+   VITE_FIREBASE_MESSAGING_SENDER_ID=1052418756688
+   VITE_FIREBASE_APP_ID=1:1052418756688:web:740ec847fe2b4281868155
    ```
 
 5. **Start the Development Server:**
