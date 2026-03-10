@@ -1,13 +1,14 @@
 import React, { useEffect, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { getUserReminders, updateReminder, addHistory, sendEmailNotification } from '../../firebase/firestoreService';
+import { useLanguage } from '../context/LanguageContext';
 import toast from 'react-hot-toast';
 
 export default function NotificationManager() {
   const { currentUser } = useAuth();
+  const { language, currentLang } = useLanguage();
   const notifiedSet = useRef(new Set());
 
-  // Helper to format time "14:05" to current day's Date
   const parseTime = (timeStr) => {
     if (!timeStr) return null;
     const [hours, mins] = timeStr.split(':');
@@ -21,13 +22,41 @@ export default function NotificationManager() {
     return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
   };
 
+  function speakReminder(reminder, lang) {
+    if (!('speechSynthesis' in window)) return;
+    window.speechSynthesis.cancel();
+
+    const name = reminder.medicineName || '';
+    const dosage = reminder.dosage ? ` — ${reminder.dosage}` : '';
+
+    let script = '';
+    if (lang === 'hi') {
+      script = `दवाई लेने का समय हो गया है। ${name}${dosage} लें।`;
+    } else if (lang === 'mr') {
+      script = `औषध घेण्याची वेळ झाली आहे। ${name}${dosage} घ्या.`;
+    } else {
+      script = `Medication reminder. It's time to take your medicine: ${name}${dosage}. Please take it now.`;
+    }
+
+    const utterance = new SpeechSynthesisUtterance(script);
+    utterance.lang = currentLang?.bcp47 || 'en-US';
+    utterance.rate = 0.9;
+    utterance.volume = 1;
+
+    // Pick best matching voice
+    const voices = window.speechSynthesis.getVoices();
+    const langCode = (currentLang?.bcp47 || 'en').split('-')[0];
+    const match = voices.find(v => v.lang.startsWith(langCode));
+    if (match) utterance.voice = match;
+
+    window.speechSynthesis.speak(utterance);
+  }
+
   useEffect(() => {
     if (!currentUser) return;
 
-    if ('Notification' in window) {
-      if (Notification.permission !== 'granted' && Notification.permission !== 'denied') {
-        Notification.requestPermission();
-      }
+    if ('Notification' in window && Notification.permission === 'default') {
+      Notification.requestPermission();
     }
 
     const checkReminders = async () => {
@@ -37,80 +66,72 @@ export default function NotificationManager() {
         const todayStr = getTodayString();
 
         reminders.forEach(async r => {
-          // If already taken today, ignore
           if (r.lastTakenDate === todayStr) return;
-          
+
           const reminderTime = parseTime(r.time);
           if (!reminderTime) return;
 
-          // Check if current time is within 10 minutes past the reminder time
           const diffMs = now.getTime() - reminderTime.getTime();
           const diffMinutes = Math.floor(diffMs / 60000);
 
           if (diffMinutes >= 0 && diffMinutes <= 10 && !notifiedSet.current.has(r.id + todayStr)) {
-            // It's time!
             notifiedSet.current.add(r.id + todayStr);
-            
-            // Show system notification
+
+            // ── System notification ──
             if ('Notification' in window && Notification.permission === 'granted') {
-              new Notification('MediHelper Reminder', {
-                body: `It's time to take your medicine: ${r.medicineName} ${r.dosage ? `(${r.dosage})` : ''}`,
-                icon: '/vite.svg', // or path to your public icon
+              new Notification('💊 MediHelper Reminder', {
+                body: `Time to take: ${r.medicineName}${r.dosage ? ` (${r.dosage})` : ''}`,
+                icon: '/vite.svg',
               });
             }
 
-            // Voice Assistant
-            if ('speechSynthesis' in window) {
-              const msg = new SpeechSynthesisUtterance(`Take this medicine now: ${r.medicineName}`);
-              window.speechSynthesis.speak(msg);
-            }
+            // ── Voice Announcement (language-aware) ──
+            speakReminder(r, language);
 
-            // Email Notification Trigger
+            // ── Email ──
             if (currentUser?.email) {
               sendEmailNotification(currentUser.email, r);
             }
 
-            // Always show in-app toast notification as a fallback/guarantee
-            toast(`It's time to take your medicine:\n${r.medicineName} ${r.dosage ? `(${r.dosage})` : ''}`, {
+            // ── In-app toast ──
+            toast(`💊 Time to take: ${r.medicineName}${r.dosage ? ` (${r.dosage})` : ''}`, {
               icon: '🔔',
-              duration: 8000,
+              duration: 10000,
               style: {
                 borderRadius: '16px',
                 background: '#10b981',
                 color: '#fff',
                 fontWeight: 'bold',
+                fontSize: '16px',
               },
             });
+
           } else if (diffMinutes > 15 && r.lastMissedDate !== todayStr) {
-            // It's past the 15 minute grace period, mark as missed!
             try {
               const docRef = await addHistory(currentUser.uid, {
                 medicineName: r.medicineName,
-                dosage: r.dosage || r.quantity || '1',
-                status: 'missed'
+                dosage: r.dosage || '1',
+                status: 'missed',
               });
-              await updateReminder(r.id, { 
+              await updateReminder(r.id, {
                 lastMissedDate: todayStr,
-                lastMissedHistoryId: docRef.id
+                lastMissedHistoryId: docRef.id,
               });
-              
-              toast.error(`Missed dose logged for: ${r.medicineName}`, { icon: '⚠️', duration: 6000 });
-            } catch(e) {
-              console.error("Failed to log missed dose", e);
+              toast.error(`Missed dose logged: ${r.medicineName}`, { icon: '⚠️', duration: 6000 });
+            } catch (e) {
+              console.error('Failed to log missed dose', e);
             }
           }
         });
       } catch (e) {
-        console.error("Failed to fetch reminders for notifications", e);
+        console.error('Reminder check failed:', e);
       }
     };
 
-    // Check immediately, then every 10 seconds to improve responsiveness
     checkReminders();
     const interval = setInterval(checkReminders, 10000);
-
     return () => clearInterval(interval);
-  }, [currentUser]);
+  }, [currentUser, language]);
 
-  return null; // This is a background component
+  return null;
 }

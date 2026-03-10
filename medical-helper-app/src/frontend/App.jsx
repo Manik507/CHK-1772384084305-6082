@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import { Toaster } from 'react-hot-toast';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ThemeProvider } from './context/ThemeContext';
+import { LanguageProvider } from './context/LanguageContext';
 
 // Layouts
 import MainLayout from './layouts/MainLayout';
@@ -20,14 +21,16 @@ import HistoryPage from './pages/HistoryPage';
 import ProfilePage from './pages/ProfilePage';
 import SettingsPage from './pages/SettingsPage';
 import AdminDashboard from './pages/AdminDashboard';
+import LandingPage from './pages/LandingPage';
 
-// Protected Route Component
+// Components
 import ProtectedRoute from './components/ProtectedRoute';
-
-// Background Notification Watcher
 import NotificationManager from './components/NotificationManager';
+import FontSizeAdjuster from './components/FontSizeAdjuster';
 
-// Admin-only route guard
+import { FontSizeProvider } from './context/FontSizeContext';
+
+// Admin route guard — redirects non-admins back to dashboard
 function AdminRoute({ children }) {
   const { isAdmin } = useAuth();
   return isAdmin ? children : <Navigate to="/dashboard" replace />;
@@ -36,48 +39,59 @@ function AdminRoute({ children }) {
 function App() {
   return (
     <ThemeProvider>
-      <AuthProvider>
-        <Router>
-          <div className="min-h-screen bg-glow-effect flex flex-col relative w-full overflow-hidden">
-            <Toaster
-              position="top-right"
-              toastOptions={{
-                duration: 4000,
-                style: { background: 'var(--glass-bg)', color: 'var(--text-primary)', backdropFilter: 'blur(12px)', border: '1px solid var(--glass-border)' },
-              }}
-            />
-            
-            <NotificationManager />
+      <LanguageProvider>
+        <AuthProvider>
+          <FontSizeProvider>
+            <Router>
+              <div className="min-h-screen bg-glow-effect flex flex-col relative w-full overflow-hidden">
+                <Toaster
+                  position="top-right"
+                  toastOptions={{
+                    duration: 4000,
+                    style: {
+                      background: 'var(--glass-bg)',
+                      color: 'var(--text-primary)',
+                      backdropFilter: 'blur(12px)',
+                      border: '1px solid var(--glass-border)',
+                    },
+                  }}
+                />
 
-            <Routes>
-              {/* Public Routes */}
-              <Route path="/login" element={<LoginPage />} />
-              <Route path="/signup" element={<SignupPage />} />
+                <NotificationManager />
+                <FontSizeAdjuster />
 
-              {/* Protected Routes */}
-              <Route element={<ProtectedRoute />}>
-                <Route element={<MainLayout />}>
-                  <Route path="/" element={<Navigate to="/dashboard" replace />} />
-                  <Route path="/dashboard" element={<Dashboard />} />
-                  <Route path="/search" element={<SearchMedicine />} />
-                  <Route path="/scanner" element={<ScannerPage />} />
-                  <Route path="/medicine/:id" element={<MedicineDetail />} />
-                  <Route path="/reminders" element={<RemindersPage />} />
-                  <Route path="/reminders/add" element={<AddReminder />} />
-                  <Route path="/history" element={<HistoryPage />} />
-                  <Route path="/profile" element={<ProfilePage />} />
-                  <Route path="/settings" element={<SettingsPage />} />
+                <Routes>
+                  {/* Public Routes */}
+                  <Route path="/" element={<LandingPage />} />
+                  <Route path="/login" element={<LoginPage />} />
+                  <Route path="/signup" element={<SignupPage />} />
 
-                  {/* Admin-only route */}
-                  <Route path="/admin" element={
-                    <AdminRoute><AdminDashboard /></AdminRoute>
-                  } />
+                  {/* Protected Routes */}
+                  <Route element={<ProtectedRoute />}>
+                    <Route element={<MainLayout />}>
+                      {/* User routes */}
+                      <Route path="/dashboard" element={<Dashboard />} />
+                    <Route path="/search" element={<SearchMedicine />} />
+                    <Route path="/scanner" element={<ScannerPage />} />
+                    <Route path="/medicine/:id" element={<MedicineDetail />} />
+                    <Route path="/reminders" element={<RemindersPage />} />
+                    <Route path="/reminders/add" element={<AddReminder />} />
+                    <Route path="/history" element={<HistoryPage />} />
+                    <Route path="/profile" element={<ProfilePage />} />
+                    <Route path="/settings" element={<SettingsPage />} />
+
+                    {/* Admin-only route */}
+                    <Route path="/admin" element={
+                      <AdminRoute><AdminDashboard /></AdminRoute>
+                    } />
+                  </Route>
                 </Route>
-              </Route>
-            </Routes>
-          </div>
-        </Router>
-      </AuthProvider>
+              </Routes>
+            </div>
+          </Router>
+          </FontSizeProvider>
+        </AuthProvider>
+      </LanguageProvider>
     </ThemeProvider>
   );
 }

@@ -1,6 +1,6 @@
 import React from 'react';
 import { useTheme } from '../context/ThemeContext';
-import { Moon, Sun, Bell, Settings as SettingsIcon, Shield, Info, Smartphone } from 'lucide-react';
+import { Moon, Sun, Bell, Settings as SettingsIcon, Shield, Info, Smartphone, Type } from 'lucide-react';
 
 function ToggleSetting({ icon: Icon, title, desc, checked, onChange, colorClass }) {
   return (
@@ -24,7 +24,7 @@ function ToggleSetting({ icon: Icon, title, desc, checked, onChange, colorClass 
 }
 
 export default function SettingsPage() {
-  const { darkMode, toggleDarkMode } = useTheme();
+  const { darkMode, toggleDarkMode, fontSize, changeFontSize } = useTheme();
   const [notifications, setNotifications] = React.useState(true);
 
   return (
@@ -58,6 +58,34 @@ export default function SettingsPage() {
             onChange={toggleDarkMode}
             colorClass={darkMode ? "bg-indigo-500/10 text-indigo-400 ring-1 ring-indigo-500/20 group-hover:bg-indigo-500 group-hover:text-white" : "bg-yellow-500/10 text-yellow-500 ring-1 ring-yellow-500/20 group-hover:bg-yellow-500 group-hover:text-white"}
           />
+          
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between p-5 md:p-6 premium-glass rounded-2xl gap-4 group transition-all duration-300 hover:shadow-lg">
+            <div className="flex items-center gap-4">
+              <div className="p-3 bg-blue-500/10 text-blue-500 ring-1 ring-blue-500/20 rounded-xl flex-shrink-0 transition-colors duration-300 group-hover:bg-blue-500 group-hover:text-white">
+                <Type className="w-6 h-6" />
+              </div>
+              <div>
+                <p className="font-bold text-[var(--text-primary)] text-lg group-hover:text-brand transition-colors">Text Size</p>
+                <p className="text-[var(--text-secondary)] font-medium mt-0.5">Adjust the interface font size</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-1 bg-[var(--bg-secondary)] p-1.5 rounded-xl border border-[var(--border-color)] self-start sm:self-auto">
+              {[
+                { id: 'sm', label: 'Aa', sizeClass: 'text-sm' },
+                { id: 'md', label: 'Aa', sizeClass: 'text-base' },
+                { id: 'lg', label: 'Aa', sizeClass: 'text-lg' }
+              ].map(sz => (
+                <button
+                  key={sz.id}
+                  onClick={() => changeFontSize(sz.id)}
+                  className={`px-4 py-2 rounded-lg font-bold transition-all duration-300 ${fontSize === sz.id ? 'bg-brand text-white shadow-md' : 'text-[var(--text-secondary)] hover:bg-[var(--glass-border)] hover:text-[var(--text-primary)]'}`}
+                  title={`${sz.id === 'sm' ? 'Small' : sz.id === 'md' ? 'Medium' : 'Large'} text size`}
+                >
+                  <span className={sz.sizeClass}>{sz.label}</span>
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
 
         <div className="relative z-10 space-y-4 mt-8">

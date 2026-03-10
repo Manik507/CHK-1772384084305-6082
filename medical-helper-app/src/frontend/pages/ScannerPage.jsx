@@ -1,158 +1,246 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { Camera, Info, Scan, Zap, X, CheckCircle } from 'lucide-react';
+import React, { useState, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { Camera, Scan, Zap, UploadCloud, CheckCircle, Loader, Search, Info, AlertTriangle } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { Html5Qrcode } from 'html5-qrcode';
+import { getMedicineByBarcode } from '../../firebase/firestoreService';
+import { useLanguage } from '../context/LanguageContext';
+import VoiceAssistant from '../components/VoiceAssistant';
 
 export default function ScannerPage() {
   const [isScanning, setIsScanning] = useState(false);
   const [scanResult, setScanResult] = useState(null);
-  const scannerRef = useRef(null);
-  const scannerInstance = useRef(null);
+  const [medicine, setMedicine] = useState(null);
+  const [fetchingMed, setFetchingMed] = useState(false);
+  const [notFound, setNotFound] = useState(false);
+  const [previewUrl, setPreviewUrl] = useState(null);
+  const fileInputRef = useRef(null);
+  const { language, setLanguage, LANGUAGES } = useLanguage();
 
-  const startScanner = async () => {
+  const handleFileUpload = async (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    // Show preview
+    const objectUrl = URL.createObjectURL(file);
+    setPreviewUrl(objectUrl);
+
     try {
       setIsScanning(true);
       setScanResult(null);
-      toast('Initializing scanner...', { icon: '⏳' });
-      
-      // We render to the div with id "reader"
-      const html5QrCode = new Html5Qrcode("reader");
-      scannerInstance.current = html5QrCode;
+      setMedicine(null);
+      setNotFound(false);
 
-      const config = { fps: 10, qrbox: { width: 250, height: 250 } };
-      
-      await html5QrCode.start(
-        { facingMode: "environment" }, 
-        config,
-        (decodedText, decodedResult) => {
-          // Success callback
-          setScanResult(decodedText);
-          toast.success(`Barcode detected: ${decodedText}`);
-          stopScanner();
-        },
-        (errorMessage) => {
-          // Parse errors are ignored, we just wait for a successful scan
+      const html5QrCode = new Html5Qrcode('reader');
+      const decodedText = await html5QrCode.scanFile(file, true);
+
+      setScanResult(decodedText);
+      toast.success(`Barcode detected: ${decodedText}`);
+
+      // Fetch from Firestore
+      setFetchingMed(true);
+      try {
+        const med = await getMedicineByBarcode(decodedText);
+        if (med) {
+          setMedicine(med);
+          toast.success(`Found: ${med.name}`, { icon: '💊' });
+        } else {
+          setNotFound(true);
+          toast('Medicine not found in database.', { icon: '🔍' });
         }
-      );
-      toast.success('Scanner ready! Point it directly at a barcode/QR code.');
-    } catch (err) {
-      console.error("Error starting scanner:", err);
-      toast.error('Failed to access camera. Please check browser permissions.');
-      setIsScanning(false);
-    }
-  };
-
-  const stopScanner = () => {
-    if (scannerInstance.current && isScanning) {
-      scannerInstance.current.stop().then(() => {
-        scannerInstance.current.clear();
-        setIsScanning(false);
-      }).catch(err => {
-        console.error("Failed to stop scanner", err);
-        setIsScanning(false);
-      });
-    } else {
-      setIsScanning(false);
-    }
-  };
-
-  useEffect(() => {
-    // Cleanup on unmount
-    return () => {
-      if (scannerInstance.current && scannerInstance.current.isScanning) {
-        scannerInstance.current.stop().then(() => {
-          scannerInstance.current.clear();
-        }).catch(err => console.log(err));
+      } finally {
+        setFetchingMed(false);
       }
-    };
-  }, []);
+    } catch (err) {
+      toast.error('Could not read barcode from image. Please try another image.');
+      setScanResult(null);
+    } finally {
+      setIsScanning(false);
+    }
+  };
+
+  const startUpload = () => {
+    if (fileInputRef.current) {
+      fileInputRef.current.click();
+    }
+  };
+
+  function getExplanation(med) {
+    return med[`simpleExplanation_${language}`]
+      || med.simpleExplanation_en
+      || med.simpleExplanation
+      || '';
+  }
 
   return (
-    <div className="space-y-8 animate-fade-in pb-10">
-      <div className="flex items-center gap-4">
-        <div className="p-3 bg-gradient-to-br from-brand-light to-brand-dark rounded-2xl shadow-lg shadow-brand/20">
-          <Scan className="w-6 h-6 text-white" />
-        </div>
-        <div>
-          <h1 className="text-3xl font-extrabold text-[var(--text-primary)] tracking-tight">Scan Medicine</h1>
-          <p className="text-[var(--text-secondary)] text-sm mt-1 font-medium flex items-center gap-2">
-            <Zap className="w-4 h-4 text-accent" />
-            AI-powered label recognition
-          </p>
+    <div className="space-y-8 animate-fade-in pb-10 max-w-3xl mx-auto">
+      {/* Header */}
+      <div className="flex items-center justify-between gap-4">
+        <div className="flex items-center gap-4">
+          <div className="p-3 bg-gradient-to-br from-brand-light to-brand-dark rounded-2xl shadow-lg shadow-brand/20">
+            <Scan className="w-6 h-6 text-white" />
+          </div>
+          <div>
+            <h1 className="text-3xl font-extrabold text-[var(--text-primary)] tracking-tight">Upload Barcode</h1>
+            <p className="text-[var(--text-secondary)] text-sm mt-1 font-medium flex items-center gap-2">
+              <Zap className="w-4 h-4 text-accent" /> Upload image → Get medicine info
+            </p>
+          </div>
         </div>
       </div>
 
+      {/* Hidden container for html5-qrcode library to attach to */}
+      <div id="reader" style={{ display: 'none' }}></div>
+      <input
+        type="file"
+        accept="image/*"
+        ref={fileInputRef}
+        onChange={handleFileUpload}
+        style={{ display: 'none' }}
+      />
+
+      {/* Upload area */}
+      <div className="premium-glass rounded-3xl overflow-hidden relative group border-2 border-dashed border-[var(--border-color)] hover:border-brand/50 transition-colors">
+        <div className="w-full bg-[var(--bg-secondary)] flex flex-col items-center justify-center relative overflow-hidden min-h-[300px] cursor-pointer" onClick={startUpload}>
+          {previewUrl && !isScanning && !fetchingMed ? (
+            <img src={previewUrl} alt="Barcode Preview" className="w-full h-full object-contain absolute inset-0 opacity-50" />
+          ) : null}
+
+          <div className="flex flex-col items-center justify-center h-full w-full py-16 relative z-10 gap-4">
+            <div className="w-48 h-36 border-4 border-brand/60 rounded-3xl relative bg-[var(--bg-primary)] shadow-lg flex items-center justify-center">
+              {isScanning ? (
+                <Loader className="w-10 h-10 text-brand animate-spin" />
+              ) : (
+                <UploadCloud className="w-10 h-10 text-brand/50" />
+              )}
+            </div>
+            <p className="text-[var(--text-primary)] font-bold text-lg mt-2">
+              {isScanning ? 'Scanning Image...' : 'Click to Upload Barcode'}
+            </p>
+            <p className="text-[var(--text-secondary)] text-sm font-medium px-4 text-center max-w-sm">
+              Upload an image of the medicine's barcode to instantly retrieve its details and instructions.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* Scan Result bar */}
       {scanResult && (
-        <div className="p-6 premium-glass rounded-2xl border-emerald-500/30 bg-emerald-500/5 mb-6 flex flex-col md:flex-row items-center gap-4 bg-white/5 relative overflow-hidden">
-          <div className="absolute left-0 top-0 bottom-0 w-1 bg-emerald-500"></div>
-          <div className="p-3 bg-emerald-500/10 rounded-full text-emerald-500 border border-emerald-500/20">
-            <CheckCircle className="w-8 h-8" />
+        <div className="premium-glass p-5 rounded-2xl flex items-center gap-4 border-emerald-500/30 bg-emerald-500/5">
+          <CheckCircle className="w-8 h-8 text-emerald-500 flex-shrink-0" />
+          <div>
+            <p className="font-bold text-[var(--text-primary)]">Barcode Detected</p>
+            <p className="text-emerald-600 font-mono text-sm">{scanResult}</p>
           </div>
-          <div className="flex-1 text-center md:text-left">
-            <h3 className="text-lg font-bold text-[var(--text-primary)]">Scan Successful</h3>
-            <p className="text-[var(--text-secondary)] font-medium">Barcode / QR Content: <span className="text-emerald-500 tracking-wider font-mono">{scanResult}</span></p>
-          </div>
-          <button onClick={() => setScanResult(null)} className="btn-premium px-6 py-2 bg-slate-200 text-slate-800 hover:bg-slate-300 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700">
-            Clear Result
-          </button>
         </div>
       )}
 
-      <div className="premium-glass rounded-3xl overflow-hidden relative group">
-        <div className="absolute inset-0 bg-brand/5 transition-colors pointer-events-none z-0"></div>
-        <div className={`w-full bg-[var(--bg-secondary)] flex flex-col items-center justify-center relative overflow-hidden bg-black/5 ${isScanning ? 'min-h-[400px]' : 'aspect-video'}`}>
-          
-          {/* Container for html5-qrcode video */}
-          <div 
-            id="reader" 
-            ref={scannerRef}
-            className={`w-full h-full relative z-10 ${isScanning ? 'block' : 'hidden'}`}
-            style={{ minHeight: isScanning ? '400px' : '0' }}
-          ></div>
+      {/* Loading medicine */}
+      {fetchingMed && (
+        <div className="flex items-center justify-center gap-3 py-6">
+          <Loader className="w-6 h-6 animate-spin text-brand" />
+          <span className="text-[var(--text-secondary)] font-medium">Looking up medicine…</span>
+        </div>
+      )}
 
-          {!isScanning && (
-            <div className="flex flex-col items-center justify-center h-full w-full py-20 relative z-10 gap-4">
-              <div className={`w-48 h-48 md:w-64 md:h-64 border-4 border-brand/50 rounded-3xl relative shadow-[0_0_30px_rgba(99,102,241,0.2)] bg-black/10`}>
-                <div className="absolute top-0 left-0 w-8 h-8 border-t-4 border-l-4 border-brand rounded-tl-xl shadow-[inset_0_0_20px_rgba(99,102,241,0.5)]" />
-                <div className="absolute top-0 right-0 w-8 h-8 border-t-4 border-r-4 border-brand rounded-tr-xl shadow-[inset_0_0_20px_rgba(99,102,241,0.5)]" />
-                <div className="absolute bottom-0 left-0 w-8 h-8 border-b-4 border-l-4 border-brand rounded-bl-xl shadow-[inset_0_0_20px_rgba(99,102,241,0.5)]" />
-                <div className="absolute bottom-0 right-0 w-8 h-8 border-b-4 border-r-4 border-brand rounded-br-xl shadow-[inset_0_0_20px_rgba(99,102,241,0.5)]" />
+      {/* Not Found */}
+      {notFound && !fetchingMed && (
+        <div className="premium-glass p-6 rounded-2xl border-amber-500/30 bg-amber-500/5 flex items-start gap-4">
+          <AlertTriangle className="w-8 h-8 text-amber-500 flex-shrink-0 mt-0.5" />
+          <div>
+            <p className="font-bold text-[var(--text-primary)] text-lg mb-1">Medicine not in database</p>
+            <p className="text-[var(--text-secondary)] text-sm font-medium">
+              Barcode <span className="font-mono text-amber-600">{scanResult}</span> was not found. Ask your admin to add it.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Medicine Detail Card */}
+      {medicine && !fetchingMed && (
+        <div className="premium-glass rounded-3xl overflow-hidden animate-fade-in">
+          {/* Top accent */}
+          <div className="h-2 bg-gradient-to-r from-brand to-accent" />
+          <div className="p-6 md:p-8 space-y-6">
+            {/* Name & Dosage */}
+            <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
+              <div>
+                <h2 className="text-3xl font-extrabold text-[var(--text-primary)] tracking-tight">{medicine.name}</h2>
+                {medicine.dosage && (
+                  <span className="inline-block mt-2 px-4 py-1 bg-brand/10 text-brand font-bold text-sm rounded-full">{medicine.dosage}</span>
+                )}
               </div>
-              <Camera className="w-10 h-10 text-[var(--text-secondary)] absolute opacity-50 pointer-events-none" />
+              {/* Language selector inside card */}
+              <div className="flex items-center gap-1 p-1 bg-[var(--bg-secondary)] rounded-xl border border-[var(--border-color)] flex-shrink-0">
+                {LANGUAGES.map(l => (
+                  <button
+                    key={l.code}
+                    onClick={() => setLanguage(l.code)}
+                    className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${language === l.code ? 'bg-brand text-white shadow' : 'text-[var(--text-secondary)] hover:text-brand'}`}
+                  >
+                    {l.full}
+                  </button>
+                ))}
+              </div>
             </div>
-          )}
-        </div>
 
-        <div className="p-6 md:p-8 bg-[var(--bg-primary)] border-t border-[var(--border-color)] relative z-10">
-          {isScanning ? (
-            <button onClick={stopScanner} className="w-full btn-premium py-4 transition-all flex items-center justify-center gap-3 text-lg !bg-red-500 hover:!bg-red-600 shadow-red-500/20">
-              <X className="w-6 h-6" />
-              Stop Scanner
-            </button>
-          ) : (
-            <button onClick={startScanner} className="w-full btn-premium py-4 transition-all flex items-center justify-center gap-3 text-lg">
-              <Scan className="w-6 h-6" />
-              Initialize Scanner
-            </button>
-          )}
-        </div>
-      </div>
+            {/* Simple Explanation */}
+            {getExplanation(medicine) && (
+              <div className="p-4 bg-brand/5 border border-brand/20 rounded-2xl">
+                <p className="text-sm font-bold text-brand mb-1 uppercase tracking-wider flex items-center gap-1">💡 Simple Explanation</p>
+                <p className="text-[var(--text-primary)] text-lg font-medium leading-relaxed">{getExplanation(medicine)}</p>
+              </div>
+            )}
 
-      <div className="flex gap-4 p-5 premium-glass rounded-2xl relative overflow-hidden bg-brand/5 border-brand/20">
-        <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-brand to-accent"></div>
+            {/* Detail Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {medicine.usageInstructions && (
+                <DetailSection icon="📋" title="Usage Instructions" text={medicine.usageInstructions} color="blue" />
+              )}
+              {medicine.precautions && (
+                <DetailSection icon="⚠️" title="Precautions" text={medicine.precautions} color="amber" />
+              )}
+              {medicine.sideEffects && (
+                <DetailSection icon="🩺" title="Side Effects" text={medicine.sideEffects} color="red" />
+              )}
+            </div>
+
+            {/* Voice Assistant */}
+            <div className="border-t border-[var(--border-color)] pt-5">
+              <p className="text-sm text-[var(--text-secondary)] font-medium mb-3">🔊 Voice assistance for elderly users:</p>
+              <VoiceAssistant medicine={medicine} />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Tips */}
+      <div className="flex gap-4 p-5 premium-glass rounded-2xl bg-brand/5 border-brand/20">
+        <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-brand to-accent" />
         <Info className="w-6 h-6 text-brand flex-shrink-0 mt-0.5" />
         <div>
-          <h4 className="font-bold text-[var(--text-primary)] mb-1">Scanning Tips</h4>
-          <p className="text-sm text-[var(--text-secondary)] font-medium leading-relaxed mb-2">
-            You can scan <strong>any medicine package's standard barcode (EAN/UPC) or a QR code</strong> on a prescription label.
-          </p>
-          <ul className="text-sm text-[var(--text-secondary)] font-medium leading-relaxed list-disc list-inside">
-            <li>Ensure adequate lighting and hold the camera steady.</li>
-            <li>Point it directly at the medication barcode or QR code.</li>
-            <li>Requires browser camera permissions.</li>
+          <h4 className="font-bold text-[var(--text-primary)] mb-1">Upload Tips</h4>
+          <ul className="text-sm text-[var(--text-secondary)] font-medium leading-relaxed list-disc list-inside space-y-1">
+            <li>Ensure the barcode is clear and in focus in the image.</li>
+            <li>Crop the image if needed before uploading.</li>
+            <li>Make sure the barcode lines are visible and unobstructed.</li>
           </ul>
         </div>
       </div>
+    </div>
+  );
+}
+
+function DetailSection({ icon, title, text, color }) {
+  const colors = {
+    blue: 'bg-blue-500/5 border-blue-500/20',
+    amber: 'bg-amber-500/5 border-amber-500/20',
+    red: 'bg-red-500/5 border-red-500/20',
+  };
+  return (
+    <div className={`rounded-2xl border p-4 ${colors[color] || ''}`}>
+      <p className="font-bold text-[var(--text-primary)] mb-2 flex items-center gap-2 text-sm uppercase tracking-wider">{icon} {title}</p>
+      <p className="text-[var(--text-secondary)] text-sm font-medium leading-relaxed">{text}</p>
     </div>
   );
 }

@@ -1,7 +1,7 @@
 import {
   doc, setDoc, getDoc, updateDoc, collection,
   addDoc, getDocs, deleteDoc, query, where,
-  orderBy, serverTimestamp,
+  orderBy, serverTimestamp, onSnapshot,
 } from 'firebase/firestore';
 import { db } from './firebase-config';
 
@@ -30,7 +30,7 @@ export async function createUserProfile(userId, data) {
     name: data.name || '',
     email: data.email || '',
     age: data.age || null,
-    preferredLanguage: data.preferredLanguage || 'english',
+    preferredLanguage: data.preferredLanguage || 'en',
     fontSize: data.fontSize || 'medium',
     voiceAssistEnabled: data.voiceAssistEnabled || false,
     createdAt: serverTimestamp(),
@@ -46,31 +46,110 @@ export async function updateUserProfile(userId, data) {
   await updateDoc(doc(db, 'users', userId), { ...data });
 }
 
-// ─── MEDICINES COLLECTION ────────────────────────────────────────────────────
-export async function addMedicine(data) {
-  return await addDoc(collection(db, 'medicines'), {
+// ─── MEDICINES COLLECTION (barcode = doc ID) ─────────────────────────────────
+
+/**
+ * Add or overwrite a medicine using barcode as the document ID.
+ */
+export async function addMedicineByBarcode(barcode, data) {
+  const ref = doc(db, 'medicines', barcode);
+  await setDoc(ref, {
     name: data.name || '',
-    barcode: data.barcode || '',
     dosage: data.dosage || '',
-    usageInstructions: data.usageInstructions || '',
-    sideEffects: data.sideEffects || '',
     precautions: data.precautions || '',
-    simpleExplanation: data.simpleExplanation || '',
+    sideEffects: data.sideEffects || '',
+    usageInstructions: data.usageInstructions || '',
+    simpleExplanation_en: data.simpleExplanation_en || '',
+    simpleExplanation_hi: data.simpleExplanation_hi || '',
+    simpleExplanation_mr: data.simpleExplanation_mr || '',
+    barcode,
+    updatedAt: serverTimestamp(),
     createdAt: serverTimestamp(),
   });
+  return ref;
 }
 
+/**
+ * Update specific fields of a medicine by barcode.
+ */
+export async function updateMedicine(barcode, data) {
+  const ref = doc(db, 'medicines', barcode);
+  await updateDoc(ref, { ...data, updatedAt: serverTimestamp() });
+}
+
+/**
+ * Delete a medicine by barcode.
+ */
+export async function deleteMedicine(barcode) {
+  await deleteDoc(doc(db, 'medicines', barcode));
+}
+
+/**
+ * Get a medicine by barcode (direct docID lookup — fast).
+ */
 export async function getMedicineByBarcode(barcode) {
+  const snap = await getDoc(doc(db, 'medicines', barcode));
+  if (snap.exists()) return { id: snap.id, ...snap.data() };
+  // Fallback: query by barcode field (for legacy Auto-ID docs)
   const q = query(collection(db, 'medicines'), where('barcode', '==', barcode));
-  const snap = await getDocs(q);
-  if (snap.empty) return null;
-  const d = snap.docs[0];
+  const qSnap = await getDocs(q);
+  if (qSnap.empty) return null;
+  const d = qSnap.docs[0];
   return { id: d.id, ...d.data() };
 }
 
 export async function getAllMedicines() {
   const snap = await getDocs(collection(db, 'medicines'));
   return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+}
+
+// ─── MEDICINE NOTIFICATIONS ───────────────────────────────────────────────────
+/**
+ * Create a notification when admin adds a medicine.
+ * All users will receive this via the notifications collection.
+ */
+export async function createMedicineNotification(barcode, medicineName) {
+  await addDoc(collection(db, 'notifications'), {
+    type: 'new_medicine',
+    barcode,
+    medicineName,
+    message: `New medicine added: ${medicineName}. Scan barcode ${barcode} to view details.`,
+    createdAt: serverTimestamp(),
+    readBy: [], // array of userIds who have read this
+  });
+}
+
+/**
+ * Get all system notifications (for users).
+ */
+export async function getSystemNotifications() {
+  const q = query(collection(db, 'notifications'), orderBy('createdAt', 'desc'));
+  const snap = await getDocs(q);
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+}
+
+/**
+ * Subscribe to system notifications in real-time.
+ */
+export function subscribeToNotifications(callback) {
+  const q = query(collection(db, 'notifications'), orderBy('createdAt', 'desc'));
+  return onSnapshot(q, (snap) => {
+    callback(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+  });
+}
+
+/**
+ * Mark a notification as read by a user.
+ */
+export async function markNotificationRead(notifId, userId) {
+  const ref = doc(db, 'notifications', notifId);
+  const snap = await getDoc(ref);
+  if (snap.exists()) {
+    const readBy = snap.data().readBy || [];
+    if (!readBy.includes(userId)) {
+      await updateDoc(ref, { readBy: [...readBy, userId] });
+    }
+  }
 }
 
 // ─── REMINDERS COLLECTION ────────────────────────────────────────────────────
@@ -103,9 +182,9 @@ export async function getUserReminders(userId) {
 }
 
 export async function updateReminder(reminderId, data) {
-  await updateDoc(doc(db, 'reminders', reminderId), { 
-    ...data, 
-    updatedAt: serverTimestamp() 
+  await updateDoc(doc(db, 'reminders', reminderId), {
+    ...data,
+    updatedAt: serverTimestamp()
   });
 }
 
@@ -156,8 +235,8 @@ export async function sendEmailNotification(email, reminder) {
       to: email,
       message: {
         subject: `Medication Reminder: ${reminder.medicineName}`,
-        text: `Hello,\n\It's time to take your medicine: ${reminder.medicineName} ${reminder.dosage ? `(${reminder.dosage})` : ''}.\n\nPlease mark it as taken in the MediHelper app.`,
-        html: `<h3>Medication Reminder</h3><p>Hello,</p><p>It's time to take your medicine: <strong>${reminder.medicineName}</strong> ${reminder.dosage ? `(${reminder.dosage})` : ''}.</p><p>Please mark it as taken in the MediHelper app. Stay healthy!</p>`
+        text: `Hello,\n\nIt's time to take your medicine: ${reminder.medicineName} ${reminder.dosage ? `(${reminder.dosage})` : ''}.\n\nPlease mark it as taken in the MediHelper app.`,
+        html: `<h3>Medication Reminder</h3><p>Hello,</p><p>It's time to take your medicine: <strong>${reminder.medicineName}</strong> ${reminder.dosage ? `(${reminder.dosage})` : ''}.</p><p>Stay healthy!</p>`
       }
     });
   } catch (err) {

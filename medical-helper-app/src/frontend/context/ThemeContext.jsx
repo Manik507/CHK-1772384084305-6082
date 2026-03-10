@@ -10,6 +10,9 @@ export function ThemeProvider({ children }) {
   const [darkMode, setDarkMode] = useState(() => {
     return localStorage.getItem('darkMode') === 'true';
   });
+  const [fontSize, setFontSize] = useState(() => {
+    return localStorage.getItem('fontSize') || 'md';
+  });
 
   useEffect(() => {
     localStorage.setItem('darkMode', darkMode);
@@ -20,10 +23,17 @@ export function ThemeProvider({ children }) {
     }
   }, [darkMode]);
 
+  useEffect(() => {
+    localStorage.setItem('fontSize', fontSize);
+    document.documentElement.classList.remove('font-sm', 'font-md', 'font-lg');
+    document.documentElement.classList.add(`font-${fontSize}`);
+  }, [fontSize]);
+
   const toggleDarkMode = () => setDarkMode((prev) => !prev);
+  const changeFontSize = (size) => setFontSize(size);
 
   return (
-    <ThemeContext.Provider value={{ darkMode, toggleDarkMode }}>
+    <ThemeContext.Provider value={{ darkMode, toggleDarkMode, fontSize, changeFontSize }}>
       {children}
     </ThemeContext.Provider>
   );
