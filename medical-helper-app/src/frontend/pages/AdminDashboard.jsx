@@ -15,8 +15,10 @@ import toast from 'react-hot-toast';
 
 // ─── EMPTY FORM ───────────────────────────────────────────────────────────────
 const emptyForm = {
-  barcode: '', name: '', dosage: '', precautions: '',
-  sideEffects: '', usageInstructions: '',
+  barcode: '', name: '', dosage: '',
+  usageInstructions_en: '', usageInstructions_hi: '', usageInstructions_mr: '',
+  precautions_en: '', precautions_hi: '', precautions_mr: '',
+  sideEffects_en: '', sideEffects_hi: '', sideEffects_mr: '',
   simpleExplanation_en: '', simpleExplanation_hi: '', simpleExplanation_mr: '',
 };
 
@@ -184,38 +186,86 @@ function MedicineForm({ initialData = emptyForm, onSubmit, loading, barcodeDisab
         </div>
       </div>
 
-      <div>
-        <Label>Usage Instructions</Label>
-        <Textarea value={form.usageInstructions} onChange={set('usageInstructions')} placeholder="e.g. Take after food every 6 hours" />
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-        <div>
-          <Label>Precautions</Label>
-          <Textarea value={form.precautions} onChange={set('precautions')} placeholder="e.g. Do not exceed 4 tablets per day" />
-        </div>
-        <div>
-          <Label>Side Effects</Label>
-          <Textarea value={form.sideEffects} onChange={set('sideEffects')} placeholder="e.g. Nausea, dizziness" />
-        </div>
-      </div>
-
       {/* Multilingual Explanations */}
-      <div className="premium-glass rounded-2xl p-5 space-y-4 border-brand/20 bg-brand/5">
+      <div className="premium-glass rounded-2xl p-5 space-y-6 border-brand/20 bg-brand/5">
         <h4 className="font-bold text-[var(--text-primary)] flex items-center gap-2 text-base">
-          🌍 Simple Explanations (Multilingual)
+          🌍 Multilingual Details
         </h4>
-        <div>
-          <Label>🇬🇧 English</Label>
-          <Textarea value={form.simpleExplanation_en} onChange={set('simpleExplanation_en')} placeholder="e.g. Used to reduce fever and relieve pain" />
+
+        {/* Simple Explanation */}
+        <div className="space-y-3">
+          <h5 className="font-bold text-brand text-sm tracking-wider uppercase">Simple Explanation</h5>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <div>
+              <Label>🇬🇧 English</Label>
+              <Textarea value={form.simpleExplanation_en} onChange={set('simpleExplanation_en')} placeholder="e.g. Used to reduce fever" />
+            </div>
+            <div>
+              <Label>🇮🇳 Hindi (हिंदी)</Label>
+              <Textarea value={form.simpleExplanation_hi} onChange={set('simpleExplanation_hi')} placeholder="e.g. बुखार कम करने की दवा" />
+            </div>
+            <div>
+              <Label>🇮🇳 Marathi (मराठी)</Label>
+              <Textarea value={form.simpleExplanation_mr} onChange={set('simpleExplanation_mr')} placeholder="e.g. ताप कमी करण्यासाठी" />
+            </div>
+          </div>
         </div>
-        <div>
-          <Label>🇮🇳 Hindi (हिंदी)</Label>
-          <Textarea value={form.simpleExplanation_hi} onChange={set('simpleExplanation_hi')} placeholder="e.g. बुखार और दर्द कम करने की दवा" />
+
+        {/* Usage Instructions */}
+        <div className="space-y-3">
+          <h5 className="font-bold text-blue-500 text-sm tracking-wider uppercase">Usage Instructions</h5>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <div>
+              <Label>🇬🇧 English</Label>
+              <Textarea value={form.usageInstructions_en} onChange={set('usageInstructions_en')} placeholder="e.g. Take after food" />
+            </div>
+            <div>
+              <Label>🇮🇳 Hindi (हिंदी)</Label>
+              <Textarea value={form.usageInstructions_hi} onChange={set('usageInstructions_hi')} placeholder="e.g. खाने के बाद लें" />
+            </div>
+            <div>
+              <Label>🇮🇳 Marathi (मराठी)</Label>
+              <Textarea value={form.usageInstructions_mr} onChange={set('usageInstructions_mr')} placeholder="e.g. जेवणानंतर घ्या" />
+            </div>
+          </div>
         </div>
-        <div>
-          <Label>🇮🇳 Marathi (मराठी)</Label>
-          <Textarea value={form.simpleExplanation_mr} onChange={set('simpleExplanation_mr')} placeholder="e.g. ताप आणि वेदना कमी करण्यासाठी औषध" />
+
+        {/* Precautions */}
+        <div className="space-y-3">
+          <h5 className="font-bold text-amber-500 text-sm tracking-wider uppercase">Precautions</h5>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <div>
+              <Label>🇬🇧 English</Label>
+              <Textarea value={form.precautions_en} onChange={set('precautions_en')} placeholder="e.g. Avoid alcohol" />
+            </div>
+            <div>
+              <Label>🇮🇳 Hindi (हिंदी)</Label>
+              <Textarea value={form.precautions_hi} onChange={set('precautions_hi')} placeholder="e.g. शराब न पिएं" />
+            </div>
+            <div>
+              <Label>🇮🇳 Marathi (मराठी)</Label>
+              <Textarea value={form.precautions_mr} onChange={set('precautions_mr')} placeholder="e.g. मद्यपान टाळा" />
+            </div>
+          </div>
+        </div>
+
+        {/* Side Effects */}
+        <div className="space-y-3">
+          <h5 className="font-bold text-red-500 text-sm tracking-wider uppercase">Side Effects</h5>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <div>
+              <Label>🇬🇧 English</Label>
+              <Textarea value={form.sideEffects_en} onChange={set('sideEffects_en')} placeholder="e.g. Nausea, Dizziness" />
+            </div>
+            <div>
+              <Label>🇮🇳 Hindi (हिंदी)</Label>
+              <Textarea value={form.sideEffects_hi} onChange={set('sideEffects_hi')} placeholder="e.g. मतली, चक्कर आना" />
+            </div>
+            <div>
+              <Label>🇮🇳 Marathi (मराठी)</Label>
+              <Textarea value={form.sideEffects_mr} onChange={set('sideEffects_mr')} placeholder="e.g. मळमळ, चक्कर येणे" />
+            </div>
+          </div>
         </div>
       </div>
 
@@ -292,9 +342,15 @@ function EditModal({ medicine, onClose, onSaved }) {
             barcode: medicine.id,
             name: medicine.name || '',
             dosage: medicine.dosage || '',
-            precautions: medicine.precautions || '',
-            sideEffects: medicine.sideEffects || '',
-            usageInstructions: medicine.usageInstructions || '',
+            usageInstructions_en: medicine.usageInstructions_en || medicine.usageInstructions || '',
+            usageInstructions_hi: medicine.usageInstructions_hi || '',
+            usageInstructions_mr: medicine.usageInstructions_mr || '',
+            precautions_en: medicine.precautions_en || medicine.precautions || '',
+            precautions_hi: medicine.precautions_hi || '',
+            precautions_mr: medicine.precautions_mr || '',
+            sideEffects_en: medicine.sideEffects_en || medicine.sideEffects || '',
+            sideEffects_hi: medicine.sideEffects_hi || '',
+            sideEffects_mr: medicine.sideEffects_mr || '',
             simpleExplanation_en: medicine.simpleExplanation_en || '',
             simpleExplanation_hi: medicine.simpleExplanation_hi || '',
             simpleExplanation_mr: medicine.simpleExplanation_mr || '',

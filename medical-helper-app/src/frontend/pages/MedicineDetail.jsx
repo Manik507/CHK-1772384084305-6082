@@ -1,6 +1,7 @@
 import React from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Pill, AlertTriangle, Info, Shield, Droplets } from 'lucide-react';
+import { useLanguage } from '../context/LanguageContext';
 
 function Section({ icon: Icon, title, content, color = 'blue' }) {
   if (!content) return null;
@@ -38,6 +39,7 @@ export default function MedicineDetail() {
   const { state } = useLocation();
   const navigate = useNavigate();
   const medicine = state?.medicine;
+  const { language } = useLanguage();
 
   if (!medicine) {
     return (
@@ -54,12 +56,20 @@ export default function MedicineDetail() {
     );
   }
 
-  const name = medicine.openfda?.brand_name?.[0] || medicine.openfda?.generic_name?.[0] || 'Unknown Medicine';
-  const manufacturer = medicine.openfda?.manufacturer_name?.[0];
-  const purpose = medicine.purpose?.[0];
-  const warnings = medicine.warnings?.[0];
-  const dosage = medicine.dosage_and_administration?.[0];
-  const ingredients = medicine.active_ingredient?.[0];
+  const isLocal = medicine.isLocal;
+  
+  function getLocalField(field) {
+    return medicine[`${field}_${language}`] || medicine[`${field}_en`] || medicine[field] || '';
+  }
+
+  const name = isLocal ? medicine.name : (medicine.openfda?.brand_name?.[0] || medicine.openfda?.generic_name?.[0] || 'Unknown Medicine');
+  const manufacturer = isLocal ? 'Local Database (FDA Sync. Disabled for local)' : medicine.openfda?.manufacturer_name?.[0];
+  
+  // For local medicines, map local fields to FDA concepts
+  const purpose = isLocal ? getLocalField('simpleExplanation') : medicine.purpose?.[0];
+  const warnings = isLocal ? getLocalField('precautions') : medicine.warnings?.[0];
+  const dosage = isLocal ? (getLocalField('usageInstructions') || medicine.dosage) : medicine.dosage_and_administration?.[0];
+  const sideEffects = isLocal ? getLocalField('sideEffects') : medicine.active_ingredient?.[0] /* FDA API doesn't always have simple side effects, using active_ingredient slot for rendering */;
 
   return (
     <div className="space-y-8 max-w-4xl mx-auto animate-fade-in pb-12">
@@ -91,10 +101,14 @@ export default function MedicineDetail() {
       </div>
 
       <div className="grid gap-6">
-        <Section icon={Info} title="Purpose & Indications" content={purpose} color="brand" />
-        <Section icon={Pill} title="Active Ingredients" content={ingredients} color="blue" />
-        <Section icon={Shield} title="Dosage & Administration" content={dosage} color="yellow" />
-        <Section icon={AlertTriangle} title="Important Warnings" content={warnings} color="red" />
+        <Section icon={Info} title={isLocal ? "Simple Explanation" : "Purpose & Indications"} content={purpose} color="brand" />
+        {isLocal ? (
+          <Section icon={Pill} title="Side Effects" content={sideEffects} color="red" />
+        ) : (
+          <Section icon={Pill} title="Active Ingredients" content={sideEffects} color="blue" />
+        )}
+        <Section icon={Shield} title="Usage / Dosage" content={dosage} color="yellow" />
+        <Section icon={AlertTriangle} title={isLocal ? "Precautions" : "Important Warnings"} content={warnings} color="red" />
       </div>
     </div>
   );

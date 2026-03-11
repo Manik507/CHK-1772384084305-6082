@@ -29,12 +29,13 @@ export default function VoiceAssistant({ medicine }) {
     if (!medicine) return '';
     const name = medicine.name || 'Unknown Medicine';
     const dosage = medicine.dosage || '';
-    const usage = medicine.usageInstructions || '';
-    const precautions = medicine.precautions || '';
-    const explanation = medicine[`simpleExplanation_${language}`]
-      || medicine.simpleExplanation_en
-      || medicine.simpleExplanation
-      || '';
+    function getField(field) {
+      return medicine[`${field}_${language}`] || medicine[`${field}_en`] || medicine[field] || '';
+    }
+
+    const usage = getField('usageInstructions');
+    const precautions = getField('precautions');
+    const explanation = getField('simpleExplanation');
 
     if (language === 'hi') {
       return `दवाई का नाम: ${name}. ` +

@@ -65,11 +65,12 @@ export default function ScannerPage() {
     }
   };
 
+  function getField(med, field) {
+    return med[`${field}_${language}`] || med[`${field}_en`] || med[field] || '';
+  }
+
   function getExplanation(med) {
-    return med[`simpleExplanation_${language}`]
-      || med.simpleExplanation_en
-      || med.simpleExplanation
-      || '';
+    return getField(med, 'simpleExplanation');
   }
 
   return (
@@ -194,14 +195,14 @@ export default function ScannerPage() {
 
             {/* Detail Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {medicine.usageInstructions && (
-                <DetailSection icon="📋" title="Usage Instructions" text={medicine.usageInstructions} color="blue" />
+              {getField(medicine, 'usageInstructions') && (
+                <DetailSection icon="📋" title="Usage Instructions" text={getField(medicine, 'usageInstructions')} color="blue" />
               )}
-              {medicine.precautions && (
-                <DetailSection icon="⚠️" title="Precautions" text={medicine.precautions} color="amber" />
+              {getField(medicine, 'precautions') && (
+                <DetailSection icon="⚠️" title="Precautions" text={getField(medicine, 'precautions')} color="amber" />
               )}
-              {medicine.sideEffects && (
-                <DetailSection icon="🩺" title="Side Effects" text={medicine.sideEffects} color="red" />
+              {getField(medicine, 'sideEffects') && (
+                <DetailSection icon="🩺" title="Side Effects" text={getField(medicine, 'sideEffects')} color="red" />
               )}
             </div>
 
