@@ -125,4 +125,4 @@ src/
 
 ## Contributing
 
-Feel free to fork the repository and submit pull requests to contribute to the UI or integrate new features!
+Feel free to fork the repository and submit pull requests to contribute to the UI or integrate new features
